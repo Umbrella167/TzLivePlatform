@@ -1,0 +1,85 @@
+class BPlusTreeNode:
+    def __init__(self, is_leaf: bool = False):
+        self.is_leaf = is_leaf
+        self.keys = []
+        self.children = []
+
+class BPlusTree:
+    def __init__(self, order: int):
+        self.root = BPlusTreeNode(is_leaf=True)
+        self.order = order
+
+    def insert(self, key):
+        root = self.root
+        if len(root.keys) == (self.order - 1):
+            new_root = BPlusTreeNode()
+            new_root.children.append(self.root)
+            self._split_child(new_root, 0)
+            self.root = new_root
+        self._insert_non_full(self.root, key)
+
+    def _split_child(self, parent, index):
+        order = self.order
+        node = parent.children[index]
+        new_node = BPlusTreeNode(is_leaf=node.is_leaf)
+        
+        parent.children.insert(index + 1, new_node)
+        parent.keys.insert(index, node.keys[order // 2 - 1])
+        
+        new_node.keys = node.keys[order // 2:]
+        node.keys = node.keys[:order // 2 - 1]
+        
+        if not node.is_leaf:
+            new_node.children = node.children[order // 2:]
+            node.children = node.children[:order // 2]
+
+    def _insert_non_full(self, node, key):
+        if node.is_leaf:
+            index = 0
+            while index < len(node.keys) and key > node.keys[index]:
+                index += 1
+            node.keys.insert(index, key)
+        else:
+            index = 0
+            while index < len(node.keys) and key > node.keys[index]:
+                index += 1
+            if len(node.children[index].keys) == (self.order - 1):
+                self._split_child(node, index)
+                if key > node.keys[index]:
+                    index += 1
+            self._insert_non_full(node.children[index], key)
+
+    def search(self, key, node=None):
+        if node is None:
+            node = self.root
+        if key in node.keys:
+            return True
+        elif node.is_leaf:
+            return False
+        else:
+            idx = 0
+            while idx < len(node.keys) and key > node.keys[idx]:
+                idx += 1
+            return self.search(key, node.children[idx])
+
+    def display(self, node=None, level=0):
+        if node is None:
+            node = self.root
+        print("Level", level, ":", node.keys)
+        if not node.is_leaf:
+            for child in node.children:
+                self.display(child, level + 1)
+
+# 示例用法
+bpt = BPlusTree(order=4)
+
+# 插入一些数据
+for key in [10, 20, 5, 6, 12, 30, 7, 17]:
+    bpt.insert(key)
+
+# 显示B+树
+bpt.display()
+
+# 搜索某个键
+print(bpt.search(6))  # 输出: True
+print(bpt.search(15)) # 输出: False
