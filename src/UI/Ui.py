@@ -1,9 +1,9 @@
 import dearpygui.dearpygui as dpg
 import src.UI.Theme as theme
-import src.VISION.VisionThread as VisionThread
 from src.SHARE.ShareData import shareData
 from src.UI.ConsoleWindow import ConsoleWindow
 from src.UI.LayoutManager import layoutManager
+from src.MESGLOGGER.Logger import log
 
 
 class UiData:
@@ -15,7 +15,6 @@ class MyComponents:
     def __init__(self, data: UiData):
         pass
 
-
 class UiCallBack:
     def __init__(self, data: UiData, component: MyComponents):
         pass
@@ -23,6 +22,8 @@ class UiCallBack:
     def save_layout(self, sender, app_data, user_data):
         if dpg.is_key_down(dpg.mvKey_Control) and dpg.is_key_down(dpg.mvKey_Control):
             layoutManager.save_layout()
+            if shareData.input.switch_proto_received:
+                log.save_to_disk()
     def switch_proto_recived(self,sender,app_data,user_data):
         shareData.input.switch_proto_received = not shareData.input.switch_proto_received
         # print(shareData.input.switch_proto_received)
@@ -107,7 +108,7 @@ class UI:
     def update_console(self):
         x = self._shareData.ui.plot_timeshapes_x
         y = self._shareData.ui.plot_timeshapes_y
-        elapsed_time = self._shareData.ui.plot_elapsed_time
+        elapsed_time = self._shareData.time.elapsed_time
         self._consoleWindow.update_plot(x,y,elapsed_time)
     def update_drawlist_size(self):
         width,height = dpg.get_item_rect_size( "ssl2d_window")
@@ -117,6 +118,7 @@ class UI:
     def create_ssl_2d_texture(self):
         width = shareData.vision.vision_ssl_2d_image_width
         height = shareData.vision.vision_ssl_2d_image_height
-        with dpg.texture_registry(show=False):
+        with dpg.texture_registry(show=False,tag = "ssl_2d_textureregistry"):
             dpg.add_raw_texture(default_value=shareData.vision.vision_ssl_2d_image,width=height,height=width,tag="ssl_2d_texture",format=dpg.mvFormat_Float_rgba)
+            
 ui = UI()

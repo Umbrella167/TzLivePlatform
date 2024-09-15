@@ -6,8 +6,8 @@ import numpy as np
 import pygfx as gfx
 from src.SHARE.ShareData import shareData
 import dearpygui.dearpygui as dpg
-import cv2
-
+import tzcp.ssl.rocos.zss_vision_detection_pb2 as detection
+import tzcp.ssl.rocos.zss_debug_pb2 as debugs
 class Draw2D:
     def __init__(self, width, height):
         self.width = width
@@ -175,31 +175,38 @@ class DrawSSL2D:
         self._draw2D.draw_filled_circle(pos, radius, color)
 
     def draw_all(self):
-        index = shareData.ui.now_tick
-        if index is None:
-            index = shareData.ui.plot_elapsed_time
-        if index in shareData.vision.vision_data:
-            self._draw2D.draw_start()
-            self.draw_field()
-            packge = shareData.vision.vision_data[index]
-            robots_blue = packge.robots_blue
-            robots_yellow = packge.robots_yellow
-            ball = packge.balls
+
+        if shareData.ui.now_msg is None:
+            return 
+        
+        now_msg = shareData.ui.now_msg
+        package = detection.Vision_DetectionFrame()
+        package.ParseFromString(now_msg)
+
+        
+        self._draw2D.draw_start()
+        self.draw_field()
+        robots_blue = package.robots_blue
+        robots_yellow = package.robots_yellow
+        ball = package.balls
+        
+        
+        for robot in robots_blue:
+            pos = [robot.x, -robot.y]
+            dir = robot.orientation
+            color = [0, 0, 255, 255]
+            self.draw_robot(pos, 110, dir, color)
             
-            for robot in robots_blue:
-                pos = [robot.x, -robot.y]
-                dir = robot.orientation
-                color = [0, 0, 255, 255]
-                self.draw_robot(pos, 110, dir, color)
-                
-            for robot in robots_yellow:
-                pos = [robot.x, -robot.y]
-                dir = robot.orientation
-                color = [255, 255, 0, 255]
-                self.draw_robot(pos, 110, dir, color)
-            self.draw_ball([ball.x, -ball.y], 47)
-            image = self._draw2D.to_dpg_texture()
-            dpg.set_value("ssl_2d_texture", image)
-            self._draw2D.draw_end()
+        for robot in robots_yellow:
+            pos = [robot.x, -robot.y]
+            dir = robot.orientation
+            color = [255, 255, 0, 255]
+            self.draw_robot(pos, 110, dir, color)
             
+
+        self.draw_ball([ball.x, -ball.y], 47)
+        image = self._draw2D.to_dpg_texture()
+        dpg.set_value("ssl_2d_texture", image)
+        self._draw2D.draw_end()
+
         

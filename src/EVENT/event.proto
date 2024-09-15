@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package event_proto;
+
+message EventMessage{
+    int64 index = 1;
+    string name = 2;
+    string type = 3;
+    int64 start_time = 4;
+    int64 end_time = 5;
+    string tag = 6;
+    int32 level = 7;
+    repeated float color_rgba = 8; 
+}

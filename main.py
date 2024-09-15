@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from src.UI.Ui import ui
 import dearpygui.dearpygui as dpg
+import dearpygui.demo as demo
 import src.UI.draw as draw
 import src.VISION.VisionThread as vision
 draw = draw.DrawSSL2D()
@@ -18,6 +19,5 @@ if __name__ == "__main__":
     ui.create_ssl3d_window()
     ui.create_sslar_window()
     ui.create_console_window()
-    
     ui.show_ui()
     ui.run_loop(loop)
