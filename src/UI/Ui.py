@@ -15,6 +15,7 @@ class MyComponents:
     def __init__(self, data: UiData):
         pass
 
+
 class UiCallBack:
     def __init__(self, data: UiData, component: MyComponents):
         pass
@@ -24,9 +25,13 @@ class UiCallBack:
             layoutManager.save_layout()
             if shareData.input.switch_proto_received:
                 log.save_to_disk()
-    def switch_proto_recived(self,sender,app_data,user_data):
-        shareData.input.switch_proto_received = not shareData.input.switch_proto_received
+
+    def switch_proto_recived(self, sender, app_data, user_data):
+        shareData.input.switch_proto_received = (
+            not shareData.input.switch_proto_received
+        )
         # print(shareData.input.switch_proto_received)
+
 
 class UI:
     def __init__(self):
@@ -36,6 +41,7 @@ class UI:
         self._callBack = UiCallBack(self._data, self._myComponents)
         self._theme = theme
         self._shareData = shareData
+
     def show_ui(self):
         layoutManager.load_layout()
         dpg.setup_dearpygui()
@@ -56,8 +62,14 @@ class UI:
                 label="save_layout", callback=self._callBack.save_layout
             )
             dpg.add_key_release_handler(
-                label="switch_proto_recived", key=dpg.mvKey_Return,callback=self._callBack.switch_proto_recived
+                label="switch_proto_recived",
+                key=dpg.mvKey_Return,
+                callback=self._callBack.switch_proto_recived,
             )
+            dpg.add_key_release_handler(
+                key=dpg.mvKey_F11, callback=dpg.toggle_viewport_fullscreen
+            )
+
     def create_viewport(self, lable: str = "", width: int = 1920, height: int = 1080):
         self.create_global_handler()
         dpg.configure_app(
@@ -69,6 +81,7 @@ class UI:
         dpg.create_viewport(title=lable, width=width, height=height)
         self.create_viewport_menu()
         self.create_ssl_2d_texture()
+
     def create_background_window(self):
         with dpg.window(
             label="SSL2D",
@@ -85,40 +98,71 @@ class UI:
                 dpg.add_menu_item(label="Exit")
 
     def create_ssl2d_window(self):
-        with dpg.window(
-            label="SSL2D",
-            width=1920,
-            height=1080,
-            tag = "ssl2d_window"
-        ):
+        with dpg.window(label="SSL2D", width=1920, height=1080, tag="ssl2d_window"):
             dpg.add_text("SSL2D")
-            with dpg.drawlist(width=0, height=0,tag= "ssl_2d_drawlist"):
+            with dpg.drawlist(width=0, height=0, tag="ssl_2d_drawlist"):
                 with dpg.draw_node(tag="ssl2d_drawnode"):
-                    dpg.draw_image(texture_tag="ssl_2d_texture",pmin=[0,0],pmax=[800,600],tag = "ssl_2d_drawimage")
-                
+                    dpg.draw_image(
+                        texture_tag="ssl_2d_texture",
+                        pmin=[0, 0],
+                        pmax=[800, 600],
+                        tag="ssl_2d_drawimage",
+                    )
+
     def create_sslar_window(self):
         with dpg.window(label="SSLAR", width=1920, height=1080):
             dpg.add_text("SSLAR")
 
     def create_ssl3d_window(self):
-        with dpg.window(label="SSL3D", width=1920, height=1080):
+        with dpg.window(label="SSL3D", width=1930, height=1080, tag="ssl3d_window"):
             dpg.add_text("SSL3D")
+            with dpg.drawlist(width=0, height=0, tag="ssl_3d_drawlist"):
+                with dpg.draw_node(tag="ssl3d_drawnode"):
+                    dpg.draw_image(
+                        texture_tag="ssl_3d_texture",
+                        pmin=[0, 0],
+                        pmax=[800, 600],
+                        tag="ssl_3d_drawimage",
+                    )
+
     def create_console_window(self):
         self._consoleWindow.create_console_window()
+
     def update_console(self):
         x = self._shareData.ui.plot_timeshapes_x
         y = self._shareData.ui.plot_timeshapes_y
         elapsed_time = self._shareData.time.elapsed_time
-        self._consoleWindow.update_plot(x,y,elapsed_time)
+        self._consoleWindow.update_console(x, y, elapsed_time)
+
     def update_drawlist_size(self):
-        width,height = dpg.get_item_rect_size( "ssl2d_window")
-        dpg.configure_item(item= "ssl_2d_drawlist",width=width,height=height - 50)
-        dpg.configure_item(item= "ssl_2d_drawimage",pmin=[0,0],pmax=[width,height])
+        width_2d, height_2d = dpg.get_item_rect_size("ssl2d_window")
+        dpg.configure_item(item="ssl_2d_drawlist", width=width_2d, height=height_2d - 50)
+        dpg.configure_item(item="ssl_2d_drawimage", pmin=[0, 0], pmax=[width_2d, height_2d])
+
+        width_3d, height_3d = dpg.get_item_rect_size("ssl3d_window")
+        dpg.configure_item(item="ssl_3d_drawlist", width=width_3d, height=height_3d - 50)
+        dpg.configure_item(item="ssl_3d_drawimage", pmin=[0, 0], pmax=[width_3d, height_3d])
         
     def create_ssl_2d_texture(self):
-        width = shareData.vision.vision_ssl_2d_image_width
-        height = shareData.vision.vision_ssl_2d_image_height
-        with dpg.texture_registry(show=False,tag = "ssl_2d_textureregistry"):
-            dpg.add_raw_texture(default_value=shareData.vision.vision_ssl_2d_image,width=height,height=width,tag="ssl_2d_texture",format=dpg.mvFormat_Float_rgba)
-            
+        width_2d = shareData.vision.vision_ssl_2d_image_width
+        height_2d = shareData.vision.vision_ssl_2d_image_height
+        with dpg.texture_registry(show=False, tag="ssl_2d_textureregistry"):
+            dpg.add_raw_texture(
+                default_value=shareData.vision.vision_ssl_2d_image,
+                width=height_2d,
+                height=width_2d,
+                tag="ssl_2d_texture",
+                format=dpg.mvFormat_Float_rgba,
+            )
+        width_3d = shareData.vision.vision_ssl_3d_image_height
+        height_3d = shareData.vision.vision_ssl_3d_image_width
+        with dpg.texture_registry(show=False, tag="ssl_3d_textureregistry"):
+            dpg.add_raw_texture(
+                default_value=shareData.vision.vision_ssl_3d_image,
+                width=height_3d,
+                height=width_3d,
+                tag="ssl_3d_texture",
+                format=dpg.mvFormat_Float_rgba,
+            )
+
 ui = UI()

@@ -2,12 +2,12 @@
 from src.UI.Ui import ui
 import dearpygui.dearpygui as dpg
 import dearpygui.demo as demo
-import src.UI.draw as draw
+from src.UI.draw import drawSSL
 import src.VISION.VisionThread as vision
-draw = draw.DrawSSL2D()
+
 def loop():
     ui.update_console()
-    draw.draw_all()
+    drawSSL.draw_all()
 
 if __name__ == "__main__":
     dpg.create_context()

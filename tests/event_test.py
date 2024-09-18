@@ -36,6 +36,7 @@ def send(sender, app_data,user_data):
     tag = dpg.get_value("tag")
     color = dpg.get_value("color")
     index = dpg.get_value("index")
+    
     level = dpg.get_value("level")
     # Create an EventMessage
     event_message = event_pb2.EventMessage()

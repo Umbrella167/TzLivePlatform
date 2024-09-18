@@ -1,5 +1,7 @@
 import numpy as np
 import time
+
+
 class ShareData:
 
     def __init__(self):
@@ -8,9 +10,15 @@ class ShareData:
         self.ui = self.Ui()
         self.time = self.times()
         self.event = self.Event()
+        self.draw = self.Draw()
+
     class Input:
         def __init__(self):
             self.switch_proto_received = False
+
+    class Draw:
+        def __init__(self):
+            self.ball_radius = 43
 
     class Vision:
         def __init__(self):
@@ -18,7 +26,17 @@ class ShareData:
             self.vision_data_count = 0
             self.vision_ssl_2d_image_width = 600
             self.vision_ssl_2d_image_height = 900
-            self.vision_ssl_2d_image = np.zeros((self.vision_ssl_2d_image_width * self.vision_ssl_2d_image_height * 4), dtype=np.float32)
+            self.vision_ssl_3d_image_width = 600
+            self.vision_ssl_3d_image_height = 900
+            
+            self.vision_ssl_2d_image = np.zeros(
+                (self.vision_ssl_2d_image_width * self.vision_ssl_2d_image_height * 4),
+                dtype=np.float32,
+            )
+            self.vision_ssl_3d_image = np.zeros(
+                (self.vision_ssl_3d_image_height * self.vision_ssl_3d_image_width * 4),
+                dtype=np.float32,
+            )
     class Ui:
         def __init__(self):
             self.plot_timeshapes_x = [0]
@@ -27,10 +45,12 @@ class ShareData:
             self.plot_elapsed_time = 0
             self.now_msg = None
             self.real_msg = None
+
     class times:
         def __init__(self):
-            self.start_time = time.time() 
+            self.start_time = time.time()
             self.elapsed_time = 0
+
     class Event:
         def __init__(self):
             self.event = {
@@ -44,4 +64,6 @@ class ShareData:
                 # "level": 0,
             }
             self.event_list = []
+
+
 shareData = ShareData()

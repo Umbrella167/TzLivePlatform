@@ -49,7 +49,6 @@ def get_vision_data():
             shareData.ui.plot_timeshapes_y.append(y_add)
             shareData.ui.real_msg = packge
 
-
 def get_event_data():
     event = visions.EVENT()
     area_height = shareData.ui.plot_original_area_height
@@ -75,7 +74,7 @@ def get_event_data():
                 "color_rgba":event_color,
                 "level":event_level
             }
-        print(shareData.event.event)
+
         # dpg.add_area_series(
         #     x=[event_start_time, event_start_time, event_end_time, event_end_time],
         #     y=[area_height, area_height * 2, area_height * 2, area_height],
