@@ -3,8 +3,9 @@ import pickle
 from datetime import datetime
 from pympler import asizeof
 import bisect
+import tzcp.ssl.rocos.zss_vision_detection_pb2 as detection
+from src.SHARE.ShareData import shareData
 
-##213213231232
 class Logger:
     def __init__(self, output_dir="logs"):
         self.output_dir = output_dir
@@ -66,8 +67,6 @@ class Logger:
         # 存储日志到磁盘
         if self.file_size > chunking_size_mb:
             self.save_to_disk()
-            
-            
 
 
 class LogPlayer:
@@ -98,66 +97,86 @@ class LogPlayer:
             return []
 
     def read_log_msg(self, timestamp):
-        # 获取日志文件列表
-        log_file = self.list_log_file(self.log_dir)
+        def __read_log_msg():
+            # 获取日志文件列表
+            log_file = self.list_log_file(self.log_dir)
+            # 如果没有日志文件，则到内存中寻找最接近的日志
+            if not log_file:
+                self.now_msg = self.get_closest_msg(self._logger.log_list, timestamp)
+                return self.now_msg
 
-        # 如果没有日志文件，则到内存中寻找最接近的日志
-        if not log_file:
-            closest_msg = self.get_closest_msg(self._logger.log_list, timestamp)
-            self.now_msg = closest_msg
-            return closest_msg
+            # 根据索引排序文件
+            sorted_filenames = sorted(log_file, key=lambda x: int(x.split("_")[0]))
+            self.sorted_filenames = sorted_filenames
 
-        # 根据索引排序文件
-        sorted_filenames = sorted(log_file, key=lambda x: int(x.split("_")[0]))
-        self.sorted_filenames = sorted_filenames
+            # 检查最后一个文件的时间戳是否早于给定的时间戳
+            last_file_end_timestamp = int(sorted_filenames[-1].split("_")[1].split(".")[0])
+            if last_file_end_timestamp < timestamp:
+                return self.get_closest_msg(self._logger.log_list, timestamp)
 
-        # 检查最后一个文件的时间戳是否早于给定的时间戳
-        last_file_end_timestamp = int(sorted_filenames[-1].split("_")[1].split(".")[0])
-        if last_file_end_timestamp < timestamp:
-            return self.get_closest_msg(self._logger.log_list, timestamp)
+            # 查找包含指定时间戳的文件
+            for filename in sorted_filenames:
+                file_end_timestamp = int(filename.split("_")[1].split(".")[0])
+                if file_end_timestamp >= timestamp:
+                    self.select_file = filename
+                    break
 
-        # 查找包含指定时间戳的文件
-        for filename in sorted_filenames:
-            file_end_timestamp = int(filename.split("_")[1].split(".")[0])
-            if file_end_timestamp >= timestamp:
-                self.select_file = filename
-                break
+            if not self.select_file:
+                return None
 
-        if not self.select_file:
-            return None
+            # 读取日志文件中的内容
+            file_path = os.path.join(self.log_dir, self.select_file)
+            log_list = self.read_log_file(file_path)
 
-        # 读取日志文件中的内容
-        file_path = os.path.join(self.log_dir, self.select_file)
-        log_list = self.read_log_file(file_path)
-
-        return self.get_closest_msg(log_list, timestamp)
-
+            return self.get_closest_msg(log_list, timestamp)
+        self.now_msg = __read_log_msg()
+        return self.now_msg
     def get_last_msg(self):
-        return self._logger.log_list[-1]
+        msg = self._logger.log_list[-1]
+        self._msg_to_string(msg)
+        return self._msg_to_string(msg)
 
     def get_closest_msg(self, log_list, timestamp):
         if not log_list:
             return None
 
-        timestamps = [msg["timestamp"] for msg in log_list]
+        start_index = 0
+        end_index = len(log_list) - 1
 
-        pos = bisect.bisect_left(timestamps, timestamp)
-
-        if pos == 0:
-            closest_msg = log_list[0]
-        elif pos == len(timestamps):
-            closest_msg = log_list[-1]
+        # Handle cases where the timestamp is out of the range
+        if timestamp <= log_list[start_index]["timestamp"]:
+            closest_msg = log_list[start_index]
+        elif timestamp >= log_list[end_index]["timestamp"]:
+            closest_msg = log_list[end_index]
         else:
-            before = timestamps[pos - 1]
-            after = timestamps[pos]
-            if after - timestamp < timestamp - before:
-                closest_msg = log_list[pos]
-            else:
-                closest_msg = log_list[pos - 1]
-        self.now_msg = closest_msg
-        return closest_msg
+            # Binary search to find the closest timestamp
+            while start_index < end_index:
+                mid_index = (start_index + end_index) // 2
+                mid_timestamp = log_list[mid_index]["timestamp"]
 
-    def get_next_msg(self):
+                if mid_timestamp == timestamp:
+                    closest_msg = log_list[mid_index]
+                    break
+                elif mid_timestamp < timestamp:
+                    start_index = mid_index + 1
+                else:
+                    end_index = mid_index
+
+            # Determine the closest index
+            if start_index == end_index:
+                closest_index = start_index
+                if start_index > 0:
+                    prev_index = start_index - 1
+                    if abs(log_list[prev_index]["timestamp"] - timestamp) <= abs(
+                        log_list[start_index]["timestamp"] - timestamp
+                    ):
+                        closest_index = prev_index
+                closest_msg = log_list[closest_index]
+
+        self.now_msg = closest_msg
+        self._now_msg_to_string()
+        return self.now_msg
+    def __next_msg(self):
         if self.now_msg is None:
             return None
 
@@ -193,13 +212,16 @@ class LogPlayer:
                 self.select_file = filename
                 break
 
-        # 读取文件中的日志
-        file_path = os.path.join(self.log_dir, self.select_file)
-        log_list = self.read_log_file(file_path)
+        # 初始化文件读取的当前位置
+        if not hasattr(self, 'current_file_log_list') or self.select_file != getattr(self, 'current_file', None):
+            # 读取文件中的日志
+            file_path = os.path.join(self.log_dir, self.select_file)
+            self.current_file_log_list = self.read_log_file(file_path)
+            self.current_file = self.select_file
 
-        if msg_index + 1 < len(log_list):
+        if msg_index + 1 < len(self.current_file_log_list):
             # 获取下一个消息
-            self.now_msg = log_list[msg_index + 1]
+            self.now_msg = self.current_file_log_list[msg_index + 1]
         else:
             # 如果当前文件已经读完，切换到下一个文件
             if self.select_file == self.sorted_filenames[-1]:
@@ -209,69 +231,97 @@ class LogPlayer:
                     self.now_msg = self._logger.log_list[0]
             else:
                 # 切换到下一个文件
-                file_index = int(self.select_file.split("_")[0]) + 1
+                file_index = self.sorted_filenames.index(self.select_file) + 1
                 self.select_file = self.sorted_filenames[file_index]
                 file_path = os.path.join(self.log_dir, self.select_file)
-                log_list = self.read_log_file(file_path)
-                self.now_msg = log_list[0]
+                self.current_file_log_list = self.read_log_file(file_path)
+                self.now_msg = self.current_file_log_list[0]
 
+        return self.now_msg
+
+    def get_next_msg(self):
+        self.now_msg = self.__next_msg()
+        self._now_msg_to_string()
+        return self.now_msg
+
+    def _msg_to_string(self, msg):
+        if isinstance(msg, bytes):
+            package = detection.Vision_DetectionFrame()
+            package.ParseFromString(msg)
+            return package
+    
+    def _now_msg_to_string(self):
+        self.now_msg["message"] = self._msg_to_string(self.now_msg["message"])
+
+    def get_now_msg(self):
+        self._now_msg_to_string()
         return self.now_msg
 
     def get_previous_msg(self):
         if self.now_msg is None:
             return None
 
-        log_file = self.list_log_file(self.log_dir)
-        msg_index = self.now_msg["index"]
-        msg_timestamp = self.now_msg["timestamp"]
+        def __get_previous_msg():
+            log_file = self.list_log_file(self.log_dir)
+            msg_index = self.now_msg["index"]
+            msg_timestamp = self.now_msg["timestamp"]
 
-        if not log_file:
-            # If there are no log files on disk, navigate through the in-memory log list
+            if not log_file:
+                # If there are no log files on disk, navigate through the in-memory log list
+                if msg_index > 0:
+                    self.now_msg = self._logger.log_list[msg_index - 1]
+                else:
+                    # If we're at the start of the in-memory log list, return the first message
+                    self.now_msg = self._logger.log_list[0]
+                return self.now_msg
+
+            # Sort the filenames by index
+            self.sorted_filenames = sorted(log_file, key=lambda x: int(x.split("_")[0]))
+
+            # If the current message is from in-memory logs and there's a previous message available
+            if msg_timestamp > int(
+                self.sorted_filenames[-1].split("_")[1].split(".")[0]
+            ):
+                if msg_index > 0:
+                    self.now_msg = self._logger.log_list[msg_index - 1]
+                else:
+                    self.now_msg = self._logger.log_list[0]
+                self.select_file = None
+                return self.now_msg
+
+            # Find the file containing the current timestamp
+            for filename in self.sorted_filenames:
+                file_end_timestamp = int(filename.split("_")[1].split(".")[0])
+                if file_end_timestamp >= msg_timestamp:
+                    self.select_file = filename
+                    break
+
+            # Read logs from the selected file
+            file_path = os.path.join(self.log_dir, self.select_file)
+            log_list = self.read_log_file(file_path)
+
             if msg_index > 0:
-                self.now_msg = self._logger.log_list[msg_index - 1]
+                # Get the previous message within the same file
+                self.now_msg = log_list[msg_index - 1]
             else:
-                # If we're at the start of the in-memory log list, return the first message
-                self.now_msg = self._logger.log_list[0]
+                # If we're at the start of the current file, move to the previous file
+                file_index = int(self.select_file.split("_")[0]) - 1
+                if file_index >= 0:
+                    self.select_file = self.sorted_filenames[file_index]
+                    file_path = os.path.join(self.log_dir, self.select_file)
+                    log_list = self.read_log_file(file_path)
+                    self.now_msg = log_list[
+                        -1
+                    ]  # Get the last message of the previous file
+                else:
+                    # If we're at the first file, return the first message
+                    self.now_msg = log_list[0]
+
             return self.now_msg
 
-        # Sort the filenames by index
-        self.sorted_filenames = sorted(log_file, key=lambda x: int(x.split("_")[0]))
-
-        # If the current message is from in-memory logs and there's a previous message available
-        if msg_timestamp > int(self.sorted_filenames[-1].split("_")[1].split(".")[0]):
-            if msg_index > 0:
-                self.now_msg = self._logger.log_list[msg_index - 1]
-            else:
-                self.now_msg = self._logger.log_list[0]
-            self.select_file = None
-            return self.now_msg
-
-        # Find the file containing the current timestamp
-        for filename in self.sorted_filenames:
-            file_end_timestamp = int(filename.split("_")[1].split(".")[0])
-            if file_end_timestamp >= msg_timestamp:
-                self.select_file = filename
-                break
-
-        # Read logs from the selected file
-        file_path = os.path.join(self.log_dir, self.select_file)
-        log_list = self.read_log_file(file_path)
-
-        if msg_index > 0:
-            # Get the previous message within the same file
-            self.now_msg = log_list[msg_index - 1]
-        else:
-            # If we're at the start of the current file, move to the previous file
-            file_index = int(self.select_file.split("_")[0]) - 1
-            if file_index >= 0:
-                self.select_file = self.sorted_filenames[file_index]
-                file_path = os.path.join(self.log_dir, self.select_file)
-                log_list = self.read_log_file(file_path)
-                self.now_msg = log_list[-1]  # Get the last message of the previous file
-            else:
-                # If we're at the first file, return the first message
-                self.now_msg = log_list[0]
-
+        self.now_msg = __get_previous_msg()
+        self._now_msg_to_string()
         return self.now_msg
+
 log = Logger()
 logPlayer = LogPlayer(log)
